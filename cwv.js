@@ -56,9 +56,9 @@ if (!outputFile) {
 if (!inputFile || !outputFile) {
     console.log("input=  & output= needed!");
 }
-(async() => {
+(async () => {
     let op = [];
-    const browser = await chromium.launch({headless: headless});
+    const browser = await chromium.launch({ headless: headless });
     console.log(`Testing with chromium ${browser.version()}`);
     const android = {
         userAgent: `Mozilla/5.0 (Linux; Android 6.0.1; Moto G (4)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${browser.version()} Mobile Safari/537.36`,
@@ -68,7 +68,7 @@ if (!inputFile || !outputFile) {
         hasTouch: true,
         defaultBrowserType: 'chromium'
     }
-    const getMetric = async function(url, cookie, warmup = false) {
+    const getMetric = async function (url, cookie, warmup = false) {
 
 
         let context = await browser.newContext({
@@ -143,160 +143,197 @@ if (!inputFile || !outputFile) {
             await autoScroll(page);
             await page.waitForTimeout(300);
             const metricsArray = await Promise.race([page.evaluate(() => {
-                    return new Promise(resolve => {
-                        let FID = 0;
-                        let CLS = 0;
-                        let LCP = 0;
-                        let CLSscore = { CLS: 0, verdict: 'good - none measured' };
-                        let newCLSscore = { CLS: 0, verdict: 'good - none measured' };
-                        let CLSentries = [];
-                        let LCPVerdict = 0;
-                        let LCPElement = '';
-                        let FIDVerdict = 0;
-                        let TTFB = 0;
+                return new Promise(resolve => {
+                    let INP = 0;
+                    let FID = 0;
+                    let CLS = 0;
+                    let LCP = 0;
+                    let CLSscore = { CLS: 0, verdict: 'good - none measured' };
+                    let newCLSscore = { CLS: 0, verdict: 'good - none measured' };
+                    let CLSentries = [];
+                    let LCPVerdict = 0;
+                    let LCPElement = '';
+                    let FIDVerdict = 0;
+                    let INPVerdict = 0;
+                    let TTFB = 0;
 
-                        function sendMetrics() {
-                            setTimeout(function() {
-                                resolve({
-                                    CLSscore,
-                                    newCLSscore,
-                                    CLSentries,
-                                    FID: FIDVerdict,
-                                    LCP: LCPVerdict,
-                                    TTFB
-                                }), 3000
-                            });
-                        }
-                        const perfEntries = performance.getEntriesByType("navigation");
-                        const root = perfEntries[0];
-                        let ttfbMeasure = root.responseStart - root.requestStart;
-                        if (ttfbMeasure > 0) {
-                            TTFB = Math.round(ttfbMeasure)
-                        }
-
-                        new PerformanceObserver(list => {
-                            list.getEntries().forEach(entry => {
-                                if (parseFloat(entry.renderTime) !== 0) {
-                                    LCP = parseFloat(entry.renderTime)
-                                } else {
-                                    parseFloat(entry.renderTime)
-                                }
-                                if (entry.element) {
-                                    let n = entry.element.nodeName;
-
-                                    if (entry.element.id !== '') {
-                                        n += '#' + entry.element.id;
-                                    }
-                                    if (entry.element.className !== '') {
-                                        n += '.' + entry.element.className.replace(/ /g, '.');
-                                    }
-                                    LCPElement = n.replace('.ttb-lcp-candidate', '');
-                                } else {
-                                    LCPElement = '';
-                                }
-
-                                let ver = 'good';
-                                if (LCP > 2500 && LCP <= 4000) {
-                                    ver = 'needs improvement';
-                                }
-                                if (LCP > 4000) {
-                                    ver = 'poor';
-                                }
-                                LCPVerdict = {
-                                    lcp: `${(LCP / 1000).toFixed(2)}`,
-                                    verdict: ver,
-                                    element: LCPElement
-                                }
-                            });
-                        }).observe({
-                            type: 'largest-contentful-paint',
-                            buffered: true
+                    function sendMetrics() {
+                        setTimeout(function () {
+                            resolve({
+                                CLSscore,
+                                newCLSscore,
+                                CLSentries,
+                                FID: FIDVerdict,
+                                LCP: LCPVerdict,
+                                INP: INPVerdict,
+                                TTFB
+                            }), 3000
                         });
+                    }
+                    const perfEntries = performance.getEntriesByType("navigation");
+                    const root = perfEntries[0];
+                    let ttfbMeasure = root.responseStart - root.requestStart;
+                    if (ttfbMeasure > 0) {
+                        TTFB = Math.round(ttfbMeasure)
+                    }
 
-                        new PerformanceObserver(list => {
-                            list.getEntries().forEach(entry => {
-                                if (entry.hadRecentInput) return;
-                                const elist = entry.sources;
-                                let eout = [];
-                                elist.forEach((e) => {
-                                    if (e.node && e.node.nodeType !== 3) {
-                                        let n = e.node.nodeName;
-                                        if (e.node.id !== '') {
-                                            n += '#' + e.node.id;
-                                        }
-                                        if (e.node.className !== '') {
-                                            n += '.' + e.node.className.replace(/ /g, '.');
-                                        }
-                                        eout.push(n.replace('.ttb-lcp-candidate', ''));
-                                    }
-                                });
-                                CLSentries.push({ value: entry.value, sources: JSON.stringify(eout) });
-                                CLS += parseFloat(entry.value);
-                                let ver = 'good';
-                                if (CLS > 0.1 && CLS <= 0.25) {
-                                    ver = 'needs improvement';
-                                }
-                                if (CLS > 0.25) {
-                                    ver = 'poor';
-                                }
-                                CLSscore = { CLS: CLS.toFixed(4), verdict: ver }
-                            });
-                        }).observe({
-                            type: 'layout-shift',
-                            buffered: true
-                        });
-
-                        let max = 0,
-                            curr = 0,
-                            firstTs = Number.NEGATIVE_INFINITY,
-                            prevTs = Number.NEGATIVE_INFINITY;
-
-                        new PerformanceObserver((entryList) => {
-                            for (const entry of entryList.getEntries()) {
-                                if (entry.hadRecentInput) continue;
-                                if (entry.startTime - firstTs > 5000 || entry.startTime - prevTs > 1000) {
-                                    firstTs = entry.startTime;
-                                    curr = 0;
-                                }
-                                prevTs = entry.startTime;
-                                curr += entry.value;
-                                max = Math.max(max, curr);
-                                let ver = 'good';
-                                if (max > 0.1 && max <= 0.25) {
-                                    ver = 'needs improvement';
-                                }
-                                if (max > 0.25) {
-                                    ver = 'poor';
-                                }
-                                newCLSscore = { CLS: max.toFixed(4), verdict: ver }
+                    new PerformanceObserver(list => {
+                        list.getEntries().forEach(entry => {
+                            if (parseFloat(entry.renderTime) !== 0) {
+                                LCP = parseFloat(entry.renderTime)
+                            } else {
+                                parseFloat(entry.renderTime)
                             }
-                        }).observe({ type: 'layout-shift', buffered: true });
+                            if (entry.element) {
+                                let n = entry.element.nodeName;
 
-                        new PerformanceObserver(list => {
-                            list.getEntries().forEach(entry => {
-                                FID = parseFloat(entry.processingStart - entry.startTime);
+                                if (entry.element.id !== '') {
+                                    n += '#' + entry.element.id;
+                                }
+                                if (entry.element.className !== '') {
+                                    n += '.' + entry.element.className.replace(/ /g, '.');
+                                }
+                                LCPElement = n.replace('.ttb-lcp-candidate', '');
+                            } else {
+                                LCPElement = '';
+                            }
+
+                            let ver = 'good';
+                            if (LCP > 2500 && LCP <= 4000) {
+                                ver = 'needs improvement';
+                            }
+                            if (LCP > 4000) {
+                                ver = 'poor';
+                            }
+                            LCPVerdict = {
+                                lcp: `${(LCP / 1000).toFixed(2)}`,
+                                verdict: ver,
+                                element: LCPElement
+                            }
+                        });
+                    }).observe({
+                        type: 'largest-contentful-paint',
+                        buffered: true
+                    });
+
+                    let maxDuration = 0;
+
+                    new PerformanceObserver(list => {
+                        for (const entry of list.getEntries()) {
+                            // Comment this out to show ALL event entry types (useful e.g. on Firefox).
+                            console.log(`[Interaction] duration: ${entry.duration}, type: ${entry.name}`, entry);
+                            if (!entry.interactionId) continue;
+                           
+
+                            if (entry.duration > maxDuration) {
+                                // New longest Interaction to Next Paint (duration).
+                                maxDuration = entry.duration;
+
+                                INP = parseFloat(entry.duration);
                                 let ver = 'good';
-                                if (FID > 100 && FID <= 300) {
+                                if (INP > 200 && INP <= 500) {
                                     ver = 'needs improvement';
                                 }
-                                if (FID > 300) {
+                                if (INP > 500) {
                                     ver = 'poor';
                                 }
+                                INPVerdict = { inp: INP.toFixed(4), verdict: ver }
 
-                                FIDVerdict = {
-                                    fid: `${FID.toFixed(4)}`,
-                                    verdict: ver
-                                }
-                                sendMetrics();
-                            });
-                        }).observe({
-                            type: 'first-input',
-                            buffered: true
-                        });
-
+                            } else {
+                                // Not the longest Interaction, but uncomment the next line if you still want to see it.
+                                // console.log(`[Interaction] duration: ${entry.duration}, type: ${entry.name}`, entry);
+                            }
+                        }
+                    }).observe({
+                        type: 'event',
+                        durationThreshold: 16, // Minimum supported by the spec.
+                        buffered: true
                     });
-                }),
-                page.waitForTimeout(5000)
+
+                    new PerformanceObserver(list => {
+                        list.getEntries().forEach(entry => {
+                            if (entry.hadRecentInput) return;
+                            const elist = entry.sources;
+                            let eout = [];
+                            elist.forEach((e) => {
+                                if (e.node && e.node.nodeType !== 3) {
+                                    let n = e.node.nodeName;
+                                    if (e.node.id !== '') {
+                                        n += '#' + e.node.id;
+                                    }
+                                    if (e.node.className !== '') {
+                                        n += '.' + e.node.className.replace(/ /g, '.');
+                                    }
+                                    eout.push(n.replace('.ttb-lcp-candidate', ''));
+                                }
+                            });
+                            CLSentries.push({ value: entry.value, sources: JSON.stringify(eout) });
+                            CLS += parseFloat(entry.value);
+                            let ver = 'good';
+                            if (CLS > 0.1 && CLS <= 0.25) {
+                                ver = 'needs improvement';
+                            }
+                            if (CLS > 0.25) {
+                                ver = 'poor';
+                            }
+                            CLSscore = { CLS: CLS.toFixed(4), verdict: ver }
+                        });
+                    }).observe({
+                        type: 'layout-shift',
+                        buffered: true
+                    });
+
+                    let max = 0,
+                        curr = 0,
+                        firstTs = Number.NEGATIVE_INFINITY,
+                        prevTs = Number.NEGATIVE_INFINITY;
+
+                    new PerformanceObserver((entryList) => {
+                        for (const entry of entryList.getEntries()) {
+                            if (entry.hadRecentInput) continue;
+                            if (entry.startTime - firstTs > 5000 || entry.startTime - prevTs > 1000) {
+                                firstTs = entry.startTime;
+                                curr = 0;
+                            }
+                            prevTs = entry.startTime;
+                            curr += entry.value;
+                            max = Math.max(max, curr);
+                            let ver = 'good';
+                            if (max > 0.1 && max <= 0.25) {
+                                ver = 'needs improvement';
+                            }
+                            if (max > 0.25) {
+                                ver = 'poor';
+                            }
+                            newCLSscore = { CLS: max.toFixed(4), verdict: ver }
+                        }
+                    }).observe({ type: 'layout-shift', buffered: true });
+
+                    new PerformanceObserver(list => {
+                        list.getEntries().forEach(entry => {
+                            FID = parseFloat(entry.processingStart - entry.startTime);
+                            let ver = 'good';
+                            if (FID > 100 && FID <= 300) {
+                                ver = 'needs improvement';
+                            }
+                            if (FID > 300) {
+                                ver = 'poor';
+                            }
+
+                            FIDVerdict = {
+                                fid: `${FID.toFixed(4)}`,
+                                verdict: ver
+                            }
+                            sendMetrics();
+                        });
+                    }).observe({
+                        type: 'first-input',
+                        buffered: true
+                    });
+
+                });
+            }),
+            page.waitForTimeout(5000)
             ]);
             if (traces) {
                 await context.tracing.stop({ path: `traces/${sanitizeURL(url)}.zip` });
@@ -319,7 +356,7 @@ if (!inputFile || !outputFile) {
     }
     let testURLs = []
     const csvPipe = fs.createReadStream(inputFile).pipe(csv());
-    csvPipe.on('data', async(row) => {
+    csvPipe.on('data', async (row) => {
         csvPipe.pause();
         testURLs.push({ url: row.url, cookie: row.cookie_close });
 
@@ -337,8 +374,8 @@ if (!inputFile || !outputFile) {
         for (let i = 0; i < urls.length; i++) {
             let data = await getMetric(urls[i].url, urls[i].cookie);
             if (data && data.CLSscore) {
-                console.log(`${i + 1} of ${urls.length} `, urls[i].url, `TTFB: ${data.TTFB} LCP: ${data.LCP.lcp} FID: ${data.FID.fid} old CLS: ${data.CLSscore.CLS} new CLS: ${data.newCLSscore.CLS}`)
-                op.push({ url: urls[i].url, newCLS: data.newCLSscore.CLS, newCLSVerdict: data.newCLSscore.verdict, oldCLS: data.CLSscore.CLS, oldCLSVerdict: data.CLSscore.verdict, CLSentries: JSON.stringify(data.CLSentries, null, 2), FID: data.FID.fid, FIDVerdict: data.FID.verdict, LCP: data.LCP.lcp, LCPVerdict: data.LCP.verdict, LCPElement: data.LCP.element, TTFB: data.TTFB, video: data.videoPath })
+                console.log(`${i + 1} of ${urls.length} `, urls[i].url, `TTFB: ${data.TTFB} LCP: ${data.LCP.lcp} INP: ${data.INP.inp} FID: ${data.FID.fid} old CLS: ${data.CLSscore.CLS} new CLS: ${data.newCLSscore.CLS}`)
+                op.push({ url: urls[i].url, newCLS: data.newCLSscore.CLS, newCLSVerdict: data.newCLSscore.verdict, oldCLS: data.CLSscore.CLS, oldCLSVerdict: data.CLSscore.verdict, CLSentries: JSON.stringify(data.CLSentries, null, 2), INP: data.INP.inp, INPVerdict: data.INP.verdict, FID: data.FID.fid, FIDVerdict: data.FID.verdict, LCP: data.LCP.lcp, LCPVerdict: data.LCP.verdict, LCPElement: data.LCP.element, TTFB: data.TTFB, video: data.videoPath })
             } else {
                 console.log(`${i + 1} of ${urls.length} `, urls[i].url, 'Error');
                 op.push({
@@ -348,6 +385,8 @@ if (!inputFile || !outputFile) {
                     oldCLS: '',
                     oldCLSVerdict: '',
                     CLSentries: '',
+                    INP: '',
+                    INPVerdict: '',
                     FID: '',
                     FIDVerdict: '',
                     LCP: '',
@@ -359,7 +398,7 @@ if (!inputFile || !outputFile) {
             }
         }
         console.log(`creating ${outputFile}`);
-        const j2csv = new Json2csv(['url', 'newCLS', 'newCLS Verdict', 'oldCLS', 'OldCLS Verdict', 'CLS Entries', 'FID (Ms)', 'FID Verdict', 'LCP (s)', 'LCP Verdict', 'LCP Element', 'Video']);
+        const j2csv = new Json2csv(['url', 'newCLS', 'newCLS Verdict', 'oldCLS', 'OldCLS Verdict', 'CLS Entries', 'INP (Ms)','INP Verdict','FID (Ms)', 'FID Verdict', 'LCP (s)', 'LCP Verdict', 'LCP Element', 'Video']);
         const csv = j2csv.parse(op);
         fs.writeFileSync(outputFile, csv, 'utf-8')
         console.log(`${outputFile} saved - done!`);
@@ -368,7 +407,7 @@ if (!inputFile || !outputFile) {
 })();
 
 async function autoScroll(page) {
-    await page.evaluate(async() => {
+    await page.evaluate(async () => {
         await new Promise((resolve, reject) => {
             var totalHeight = 0;
             var distance = 100;

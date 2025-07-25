@@ -14,7 +14,7 @@ function sendToHolder({
     verdict
 }) {
     var holder = document.getElementById('webVitalsHolder');
-    if (typeof(holder) === 'undefined' || holder === null) {
+    if (typeof (holder) === 'undefined' || holder === null) {
         var holder = document.createElement('span');
         holder.id = 'webVitalsHolder';
         holder.style.position = 'fixed';
@@ -33,7 +33,7 @@ function sendToHolder({
         document.body.appendChild(holder);
     }
     var element = document.getElementById('webVital-' + name);
-    if (typeof(element) !== 'undefined' && element !== null) {
+    if (typeof (element) !== 'undefined' && element !== null) {
         if (verdict === 0) {
             element.style.color = '#0cce6b';
         } else if (verdict === 1) {
@@ -141,7 +141,7 @@ new PerformanceObserver(list => {
         if (ttbLCP === 0) {
             ttbLCP = parseFloat(entry.loadTime);
         }
-        [].forEach.call(document.querySelectorAll('.ttb-lcp-candidate'), function(el) {
+        [].forEach.call(document.querySelectorAll('.ttb-lcp-candidate'), function (el) {
             el.classList.remove('ttb-lcp-candidate');
         });
         if (entry.element) {
@@ -182,5 +182,40 @@ new PerformanceObserver(list => {
     });
 }).observe({
     type: 'first-input',
+    buffered: true
+});
+let maxDuration = 0;
+
+new PerformanceObserver(list => {
+    for (const entry of list.getEntries()) {
+        // Comment this out to show ALL event entry types (useful e.g. on Firefox).
+        if (!entry.interactionId) continue;
+
+        if (entry.duration > maxDuration) {
+            // New longest Interaction to Next Paint (duration).
+            maxDuration = entry.duration;
+
+            ttbINP = parseFloat(entry.duration);
+            var ver = 0;
+            if (ttbINP > 200 && ttbINP <= 500) {
+                ver = 1;
+            }
+            if (ttbINP > 500) {
+                ver = 2;
+            }
+            sendToHolder({
+                name: 'INP',
+                delta: `${ttbFID.toFixed(4)} Ms`,
+                verdict: ver
+            });
+
+        } else {
+            // Not the longest Interaction, but uncomment the next line if you still want to see it.
+            // console.log(`[Interaction] duration: ${entry.duration}, type: ${entry.name}`, entry);
+        }
+    }
+}).observe({
+    type: 'event',
+    durationThreshold: 16, // Minimum supported by the spec.
     buffered: true
 });
